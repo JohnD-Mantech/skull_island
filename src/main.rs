@@ -1,6 +1,5 @@
-use std::{fs::{self, File}, io::{self, stdin, Error, Read}, path::Path, process::exit};
+use std::{fs::{self, File}, io::{self, stdin, stdout, Error, Read, Write}, path::Path, process::exit};
 use crypto::{aes as sha256, blockmodes as bm, buffer::{BufferResult::{BufferOverflow as BO, BufferUnderflow as BU}, ReadBuffer as bufr, RefReadBuffer as rrb, RefWriteBuffer as rwb, WriteBuffer as wb}};
-use image::{GrayImage, Luma, Rgba};
 use ndarray::{array, s, Array2, ArrayView2, ArrayViewMut2};
 
 extern crate crypto;
@@ -9,6 +8,9 @@ extern crate crypto;
 const OCEAN_SHAPE: usize = 1024;
 
 const SUPERSECRET: &str = "ThisIsASuperSecretAndHiddenPaswd";
+
+const BOX_WIDTH:usize = 4;
+
 
 const BANNER: &str = r#"                                                                                                    
                                                                                                     
@@ -70,7 +72,7 @@ const BAD_LENGTH: &str = "The diety is displeased...
 The length of the message is not what it expected...
 The volcano erupts in a fiery column, destroying your ship and stranding you on skull island.";
 
-fn raise_the_flags(state: Vec<u8>) -> Result<(), Error> {
+fn raise_the_flags(state: Vec<u8>) -> Result<Array2<bool>, Error> {
     if state.len() != 512 {
         println!("{BAD_LENGTH}");
         exit(0);
@@ -89,50 +91,30 @@ fn raise_the_flags(state: Vec<u8>) -> Result<(), Error> {
     let mut ocean = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
     ocean.slice_mut(s![OCEAN_SHAPE/2-32..OCEAN_SHAPE/2+32,OCEAN_SHAPE/2-32..OCEAN_SHAPE/2+32]).assign(&board);
 
-    // let slice = ocean.slice_mut(s![96..98, 96..98]);
 
-    if !Path::new("outputs").exists() {
-        fs::create_dir(Path::new("outputs"))?;
-    }
-
-    let mut image = GrayImage::new(OCEAN_SHAPE as u32, OCEAN_SHAPE as u32);
-    for (j, is_alive) in ocean.clone().into_raw_vec().iter().enumerate() {
-        if *is_alive {
-            image.put_pixel((j % OCEAN_SHAPE) as u32, (j / OCEAN_SHAPE) as u32, Luma([255]))
-        }
-    }
-    image.save(format!("outputs/frame{}.png", 0)).unwrap();
+     
 
     for i in 0..200 {
-        // println!("{ocean}");
         ocean = motion(&ocean, i); 
-        let mut image = GrayImage::new(OCEAN_SHAPE as u32, OCEAN_SHAPE as u32);
-        for (j, is_alive) in ocean.clone().into_raw_vec().iter().enumerate() {
-            if *is_alive {
-                image.put_pixel((j % OCEAN_SHAPE) as u32, (j / OCEAN_SHAPE) as u32, Luma([255]))
-            }
-        }
-        image.save(format!("outputs/frame{}.png", i+1)).unwrap();
     }
-    Ok(())
+
+    
+    Ok(ocean)
 
 }
 
-// fn transition(ocean: &mut Array2<bool>, ) {
-//     part.assign(&array![[false, false], [false, false]])
 
-// }
-
-const BOX_WIDTH:usize = 4;
 
 
 
 /// Block_size = 3
-fn motion(ocean: &Array2<bool>, step_index:usize) -> Array2<bool> {
+fn motion(ocean: &Array2<bool>, end:usize) -> Array2<bool> {
     let mut nextocean = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
 
-    let offset = (step_index % BOX_WIDTH) as i32;
-    println!("{}", offset);
+    let offset = (end % BOX_WIDTH) as i32;
+    // println!("{}", offset);
+    print!("\r{}{}", ". ".repeat(offset as usize), "  ".repeat(BOX_WIDTH - offset as usize));
+    stdout().flush().unwrap();
     let mut y = -offset;
 
     while y < ocean.shape()[1] as i32 {
@@ -145,12 +127,12 @@ fn motion(ocean: &Array2<bool>, step_index:usize) -> Array2<bool> {
                         match ocean.get(((y + dy as i32) as usize, (x + dx as i32) as usize)) {
                             Some(&is_alive) => {
                                 if is_alive {num_alive += 1}}
-                            None => if step_index % 2 == 1 {
+                            None => if end % 2 == 1 {
                                 num_alive += 1
                             },
                         };
                     } else {
-                        if step_index % 2 == 1 {
+                        if end % 2 == 1 {
                             num_alive += 1
                         }
                     }
@@ -195,9 +177,26 @@ fn main() -> Result<(), io::Error> {
     println!("What is your message?");
     let jolly_roger = pancakeify()?;
     println!("\nYou write your message down on a slip of paper and toss it into the volcano.\n");
-    raise_the_flags(jolly_roger)?;
-
+    let sea = raise_the_flags(jolly_roger)?;
+    if check_pool(sea) {
+        println!("{}", dig_treasure()?);
+    }
     Ok(())
+}
+
+fn check_pool(lava: Array2<bool>) -> bool {
+    let mut file = File::open("lava").unwrap();
+
+    for bit in lava {
+        let mut buf = [0u8];
+        match file.read_exact(&mut buf) {
+            Ok(_) => if match bit {true => 1, false => 0} != buf[0] {return false},
+            Err(_) => todo!(),
+        }
+    }
+
+    true
+
 }
 
 fn dig_treasure() -> Result<String, io::Error>{
