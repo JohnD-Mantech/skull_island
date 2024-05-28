@@ -1,8 +1,12 @@
-use std::{fs::File, io::{self, stdin, Error, Read}, process::exit};
+use std::{fs::{self, File}, io::{self, stdin, Error, Read}, path::Path, process::exit};
 use crypto::{aes as sha256, blockmodes as bm, buffer::{BufferResult::{BufferOverflow as BO, BufferUnderflow as BU}, ReadBuffer as bufr, RefReadBuffer as rrb, RefWriteBuffer as rwb, WriteBuffer as wb}};
+use image::{GrayImage, Luma, Rgba};
 use ndarray::{array, s, Array2, ArrayView2, ArrayViewMut2};
 
 extern crate crypto;
+
+
+const OCEAN_SHAPE: usize = 512;
 
 const SUPERSECRET: &str = "ThisIsASuperSecretAndHiddenPaswd";
 
@@ -82,31 +86,103 @@ fn raise_the_flags(state: Vec<u8>) -> Result<(), Error> {
         }
     }
 
-    let mut ocean = Array2::from_elem((256, 256), false);
+    let mut ocean = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
+    ocean.slice_mut(s![OCEAN_SHAPE/2-32..OCEAN_SHAPE/2+32,OCEAN_SHAPE/2-32..OCEAN_SHAPE/2+32]).assign(&board);
 
-    ocean.slice_mut(s![96..160,96..160]).assign(&board);
+    // let slice = ocean.slice_mut(s![96..98, 96..98]);
 
-    let slice = ocean.slice_mut(s![96..98, 96..98]);
+    if !Path::new("outputs").exists() {
+        fs::create_dir(Path::new("outputs"))?;
+    }
 
+    let mut image = GrayImage::new(OCEAN_SHAPE as u32, OCEAN_SHAPE as u32);
+    for (j, is_alive) in ocean.clone().into_raw_vec().iter().enumerate() {
+        if *is_alive {
+            image.put_pixel((j % OCEAN_SHAPE) as u32, (j / OCEAN_SHAPE) as u32, Luma([255]))
+        }
+    }
+    image.save(format!("outputs/frame{}.png", 0)).unwrap();
 
+    for i in 0..250 {
+        println!("{ocean}");
+        ocean = motion(&ocean, i); 
+        let mut image = GrayImage::new(OCEAN_SHAPE as u32, OCEAN_SHAPE as u32);
+        for (j, is_alive) in ocean.clone().into_raw_vec().iter().enumerate() {
+            if *is_alive {
+                image.put_pixel((j % OCEAN_SHAPE) as u32, (j / OCEAN_SHAPE) as u32, Luma([255]))
+            }
+        }
+        image.save(format!("outputs/frame{}.png", i+1)).unwrap();
+    }
     Ok(())
 
 }
 
-fn transition(mut part: ArrayViewMut2<bool>) {
-    part.assign(&array![[false, false], [false, false]])
+// fn transition(ocean: &mut Array2<bool>, ) {
+//     part.assign(&array![[false, false], [false, false]])
 
-}
+// }
+
+
+
 
 
 /// Block_size = 3
-fn motion(ocean: Array2<bool>, odd: bool) -> Array2<bool> {
-    let mut nextocean = Array2::from_elem((256, 256), false);
+fn motion(ocean: &Array2<bool>, step_index:usize) -> Array2<bool> {
+    let mut nextocean = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
 
+    let offset = (step_index % 3) as i32;
     
-    
+    let mut y = -offset;
 
-    todo!()
+    while y < ocean.shape()[1] as i32 {
+        let mut x = -offset;
+        while x < ocean.shape()[0] as i32 {
+            let mut temp:u16 = 0;
+            let mut shift = 0;
+            for dy in 0..3 {
+                for dx in 0..3 {
+                    if x + dx >= 0 && y + dy >= 0 {
+                        temp |= match ocean.get(((y + dy) as usize, (x + dx) as usize)) {
+                            Some(&is_alive) => {
+                                if is_alive {1} else {0}}
+                            None => 0,
+                        } << shift;
+                    }
+                    shift += 1;
+                }
+            }
+            if temp > 0 {
+                temp -= 1;
+            } else {
+                temp = 511;
+            }
+
+            for i in 0..9 {
+                if y + i/3 >= 0 && x + i % 3 >= 0 {
+                match nextocean.get_mut(((y + i / 3) as usize, (x + i % 3) as usize)) {
+                    Some(spot) => {
+                        if temp >> i & 1 == 1 {
+                            *spot = true;
+                        } else {
+                            *spot = false;
+                        }
+                    },
+                    None => (),
+                }
+            }
+                
+           }
+        
+
+
+            x += 3;
+        }
+        y += 3
+        
+    }
+
+    nextocean
 }
 
 
