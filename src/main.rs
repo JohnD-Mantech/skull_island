@@ -6,7 +6,7 @@ use ndarray::{array, s, Array2, ArrayView2, ArrayViewMut2};
 extern crate crypto;
 
 
-const OCEAN_SHAPE: usize = 512;
+const OCEAN_SHAPE: usize = 1024;
 
 const SUPERSECRET: &str = "ThisIsASuperSecretAndHiddenPaswd";
 
@@ -103,8 +103,8 @@ fn raise_the_flags(state: Vec<u8>) -> Result<(), Error> {
     }
     image.save(format!("outputs/frame{}.png", 0)).unwrap();
 
-    for i in 0..250 {
-        println!("{ocean}");
+    for i in 0..200 {
+        // println!("{ocean}");
         ocean = motion(&ocean, i); 
         let mut image = GrayImage::new(OCEAN_SHAPE as u32, OCEAN_SHAPE as u32);
         for (j, is_alive) in ocean.clone().into_raw_vec().iter().enumerate() {
@@ -123,7 +123,7 @@ fn raise_the_flags(state: Vec<u8>) -> Result<(), Error> {
 
 // }
 
-
+const BOX_WIDTH:usize = 4;
 
 
 
@@ -131,48 +131,51 @@ fn raise_the_flags(state: Vec<u8>) -> Result<(), Error> {
 fn motion(ocean: &Array2<bool>, step_index:usize) -> Array2<bool> {
     let mut nextocean = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
 
-    let offset = (step_index % 3) as i32;
-    
+    let offset = (step_index % BOX_WIDTH) as i32;
+    println!("{}", offset);
     let mut y = -offset;
 
     while y < ocean.shape()[1] as i32 {
         let mut x = -offset;
         while x < ocean.shape()[0] as i32 {
-            let mut temp:u16 = 0;
-            let mut shift = 0;
-            for dy in 0..3 {
-                for dx in 0..3 {
-                    if x + dx >= 0 && y + dy >= 0 {
-                        temp |= match ocean.get(((y + dy) as usize, (x + dx) as usize)) {
+            let mut num_alive = 0;
+            for dy in 0..BOX_WIDTH {
+                for dx in 0..BOX_WIDTH {
+                    if x + dx as i32 >= 0 && y + dy as i32 >= 0 {
+                        match ocean.get(((y + dy as i32) as usize, (x + dx as i32) as usize)) {
                             Some(&is_alive) => {
-                                if is_alive {1} else {0}}
-                            None => 0,
-                        } << shift;
+                                if is_alive {num_alive += 1}}
+                            None => if step_index % 2 == 1 {
+                                num_alive += 1
+                            },
+                        };
+                    } else {
+                        if step_index % 2 == 1 {
+                            num_alive += 1
+                        }
                     }
-                    shift += 1;
                 }
-            }
-            if temp > 0 {
-                temp -= 1;
-            } else {
-                temp = 511;
             }
 
-            for i in 0..9 {
-                if y + i/3 >= 0 && x + i % 3 >= 0 {
-                match nextocean.get_mut(((y + i / 3) as usize, (x + i % 3) as usize)) {
-                    Some(spot) => {
-                        if temp >> i & 1 == 1 {
-                            *spot = true;
-                        } else {
-                            *spot = false;
+            
+                for dy in 0..BOX_WIDTH {
+                    for dx in 0..BOX_WIDTH {
+                        if x + dx as i32 >= 0 && y + dy as i32 >= 0 {
+                            match nextocean.get_mut(((y + dy as i32) as usize, (x + dx as i32) as usize)) {
+                                Some(nospot) => {
+                                    if (num_alive > 6 && num_alive < 11) || num_alive == 1 || num_alive == 15 {
+                                        *nospot = ocean[((y + dy as i32) as usize, (x + dx as i32) as usize)];
+                                    } else {
+                                        *nospot = !ocean[((y + dy as i32) as usize, (x + dx as i32) as usize)];
+                                    }
+                                },
+                                None => (),
+                            }
                         }
-                    },
-                    None => (),
-                }
-            }
-                
-           }
+                    }
+                } 
+            
+           
         
 
 
