@@ -177,7 +177,10 @@ fn main() -> Result<(), io::Error> {
     println!("What is your message?");
     let jolly_roger = pancakeify()?;
     println!("\nYou write your message down on a slip of paper and toss it into the volcano.\n");
+    println!("The slip of paper slowly flutters down into the volcano...");
     let sea = raise_the_flags(jolly_roger)?;
+    println!();
+    println!();
     if check_pool(sea) {
         println!("{}", dig_treasure()?);
     } else {
