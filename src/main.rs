@@ -9,7 +9,7 @@ const OCEAN_SHAPE: usize = 1024;
 
 const SUPERSECRET: &str = "ThisIsASuperSecretAndHiddenPaswd";
 
-const BOX_WIDTH:usize = 4;
+const HELP_QUANTITY:usize = 4;
 
 
 const BANNER: &str = r#"                                                                                                    
@@ -111,20 +111,20 @@ fn raise_the_flags(state: Vec<u8>) -> Result<Array2<bool>, Error> {
 fn motion(ocean: &Array2<bool>, end:usize) -> Array2<bool> {
     let mut nextocean = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
 
-    let offset = (end % BOX_WIDTH) as i32;
+    let set = (end % HELP_QUANTITY) as i32;
     // println!("{}", offset);
-    print!("\r{}{}", ". ".repeat(offset as usize), "  ".repeat(BOX_WIDTH - offset as usize));
+    print!("\r{}{}", ". ".repeat(set as usize), "  ".repeat(HELP_QUANTITY - set as usize));
     stdout().flush().unwrap();
-    let mut y = -offset;
+    let mut x = -set;
 
-    while y < ocean.shape()[1] as i32 {
-        let mut x = -offset;
-        while x < ocean.shape()[0] as i32 {
+    while x < ocean.shape()[1] as i32 {
+        let mut quantity = -set;
+        while quantity < ocean.shape()[0] as i32 {
             let mut num_alive = 0;
-            for dy in 0..BOX_WIDTH {
-                for dx in 0..BOX_WIDTH {
-                    if x + dx as i32 >= 0 && y + dy as i32 >= 0 {
-                        match ocean.get(((y + dy as i32) as usize, (x + dx as i32) as usize)) {
+            for dx in 0..HELP_QUANTITY {
+                for change in 0..HELP_QUANTITY {
+                    if quantity + change as i32 >= 0 && x + dx as i32 >= 0 {
+                        match ocean.get(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
                             Some(&is_alive) => {
                                 if is_alive {num_alive += 1}}
                             None => if end % 2 == 1 {
@@ -140,15 +140,15 @@ fn motion(ocean: &Array2<bool>, end:usize) -> Array2<bool> {
             }
 
             
-                for dy in 0..BOX_WIDTH {
-                    for dx in 0..BOX_WIDTH {
-                        if x + dx as i32 >= 0 && y + dy as i32 >= 0 {
-                            match nextocean.get_mut(((y + dy as i32) as usize, (x + dx as i32) as usize)) {
+                for dx in 0..HELP_QUANTITY {
+                    for change in 0..HELP_QUANTITY {
+                        if quantity + change as i32 >= 0 && x + dx as i32 >= 0 {
+                            match nextocean.get_mut(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
                                 Some(nospot) => {
                                     if (num_alive > 6 && num_alive < 11) || num_alive == 1 || num_alive == 15 {
-                                        *nospot = ocean[((y + dy as i32) as usize, (x + dx as i32) as usize)];
+                                        *nospot = ocean[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
                                     } else {
-                                        *nospot = !ocean[((y + dy as i32) as usize, (x + dx as i32) as usize)];
+                                        *nospot = !ocean[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
                                     }
                                 },
                                 None => (),
@@ -161,9 +161,9 @@ fn motion(ocean: &Array2<bool>, end:usize) -> Array2<bool> {
         
 
 
-            x += 3;
+            quantity += 3;
         }
-        y += 3
+        x += 3
         
     }
 
@@ -180,6 +180,10 @@ fn main() -> Result<(), io::Error> {
     let sea = raise_the_flags(jolly_roger)?;
     if check_pool(sea) {
         println!("{}", dig_treasure()?);
+    } else {
+        println!(r#"You hear a rumbling, and the diety shouts: 
+        "YOU HAVE FAILED ME"
+        The volcano erupts, destroying your ship and leaving you stranded on the island."#);
     }
     Ok(())
 }
