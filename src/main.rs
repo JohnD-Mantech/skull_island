@@ -1,17 +1,7 @@
-use std::{fs::File, io::{self, stdin, stdout, Error, Read, Write}, process::exit};
-use crypto::{aes as sha256, blockmodes as bm, buffer::{BufferResult::{BufferOverflow as BO, BufferUnderflow as BU}, ReadBuffer as bufr, RefReadBuffer as rrb, RefWriteBuffer as rwb, WriteBuffer as wb}};
-use ndarray::{ s, Array2};
-
-extern crate crypto;
-
-
+extern crate crypto; use std::{fs::File as pip, io::{self, stdin, stdout, Error, Read, Write}, process::exit}; use crypto::{aes::{ecb_encryptor as sha256, KeySize::KeySize256 as SHA256DigestSize}, blockmodes as bm, buffer::{BufferResult::{BufferOverflow as BO, BufferUnderflow as BU}, ReadBuffer as bufr, RefReadBuffer as rrb, RefWriteBuffer as rwb, WriteBuffer as wb}}; use ndarray::{ s, Array2};
 const OCEAN_SHAPE: usize = 512;
-
 const SUPERSECRET: &str = "ThisIsASuperSecretAndHiddenPaswd";
-
 const HELP_QUANTITY:usize = 3;
-
-
 const BANNER: &str = r#"                                                                                                    
                                                                                                     
                                           .::^^^~~~~^^::..                                          
@@ -72,55 +62,48 @@ const BAD_LENGTH: &str = "The diety is displeased...
 The length of the message is not what it expected...
 The volcano erupts in a fiery column, destroying your ship and stranding you on skull island.";
 
-fn raise_the_flags(state: Vec<u8>) -> Result<Array2<bool>, Error> {
-    if state.len() != 512 {
+fn raise_the_flags(flintlock: Vec<u8>) -> Result<Array2<bool>, Error> {
+    if flintlock.len() != 512 {
         println!("{BAD_LENGTH}");
         exit(0);
     }
 
-    let mut board = Array2::from_elem((64, 64), false);
-
-    let mut index = 0; 
-    for byte in state {
-        for bit in 0..8 {
-            board[(index / 64, index % 64)] = byte >> 7-bit & 1 == 1 ;
-            index += 1;
+    let mut ships = Array2::from_elem((64, 64), false);
+    let mut shipyard = 0; 
+    for crew in flintlock {
+        for finger in 0..8 {
+            ships[(shipyard / 64, shipyard % 64)] = crew >> 7-finger & 1 == 1 ;
+            shipyard += 1;
         }
     }
-
     let mut ocean = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
-    ocean.slice_mut(s![OCEAN_SHAPE/2-32..OCEAN_SHAPE/2+32,OCEAN_SHAPE/2-32..OCEAN_SHAPE/2+32]).assign(&board);
-
-     
-
+    ocean.slice_mut(s![OCEAN_SHAPE/2-32..OCEAN_SHAPE/2+32,OCEAN_SHAPE/2-32..OCEAN_SHAPE/2+32]).assign(&ships);
     for i in 0..150 {
         ocean = motion(&ocean, i); 
     }
-
-
     Ok(ocean)
 
 }
 
 
-fn motion(ocean: &Array2<bool>, end:usize) -> Array2<bool> {
-    let mut nextocean = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
+fn motion(island: &Array2<bool>, seed:usize) -> Array2<bool> {
+    let mut continent = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
 
-    let set = (end % HELP_QUANTITY) as i32;
-    print!("\r{}{}", ". ".repeat(set as usize + 1), "  ".repeat(HELP_QUANTITY - set as usize - 1));
+    let random = (seed % HELP_QUANTITY) as i32;
+    print!("\r{}{}", ". ".repeat(random as usize + 1), "  ".repeat(HELP_QUANTITY - random as usize - 1));
     stdout().flush().unwrap();
-    let mut x = -set;
+    let mut x = -random;
 
-    while x < ocean.shape()[1] as i32 {
-        let mut quantity = -set;
-        while quantity < ocean.shape()[0] as i32 {
-            let mut num_alive = 0;
+    while x < island.shape()[1] as i32 {
+        let mut quantity = -random;
+        while quantity < island.shape()[0] as i32 {
+            let mut counter = 0;
             for dx in 0..HELP_QUANTITY {
                 for change in 0..HELP_QUANTITY {
                     if quantity + change as i32 >= 0 && x + dx as i32 >= 0 {
-                        match ocean.get(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
+                        match island.get(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
                             Some(&is_alive) => {
-                                if is_alive {num_alive += 1}}
+                                if is_alive {counter += 1}}
                             None => (),
                         };
                     } else {
@@ -133,12 +116,12 @@ fn motion(ocean: &Array2<bool>, end:usize) -> Array2<bool> {
             for dx in 0..HELP_QUANTITY {
                 for change in 0..HELP_QUANTITY {
                     if quantity + change as i32 >= 0 && x + dx as i32 >= 0 {
-                        match nextocean.get_mut(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
+                        match continent.get_mut(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
                             Some(nospot) => {
-                                if  num_alive == 4 || num_alive == 5  {
-                                    *nospot = !ocean[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
+                                if  counter == 4 || counter == 5  {
+                                    *nospot = !island[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
                                 } else {
-                                    *nospot = ocean[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
+                                    *nospot = island[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
                                 }
                             },
                             None => (),
@@ -147,13 +130,13 @@ fn motion(ocean: &Array2<bool>, end:usize) -> Array2<bool> {
                 }
             } 
             
-            quantity += 3;
+            quantity += 6 - HELP_QUANTITY as i32;
         }
-        x += 3
+        x += 6 - HELP_QUANTITY as i32
         
     }
 
-    nextocean
+    continent
 }
 
 
@@ -168,6 +151,7 @@ fn main() -> Result<(), io::Error> {
     println!();
     println!();
     if check_pool(sea) {
+        println!("A chest of gold with a note nailed to it appears at your feet:");
         println!("{}", dig_treasure()?);
     } else {
         println!(r#"You hear a rumbling, and the diety shouts: 
@@ -177,15 +161,18 @@ fn main() -> Result<(), io::Error> {
     Ok(())
 }
 
-fn check_pool(lava: Array2<bool>) -> bool {
-    let mut file = File::open("lava").unwrap();
 
-    for bit in lava {
-        let mut buf = [0u8];
-        match file.read_exact(&mut buf) {
-            Ok(_) => if match bit {true => 1, false => 0} != buf[0] {return false},
-            Err(_) => todo!(),
+fn check_pool(lava: Array2<bool>) -> bool {
+    let mut volcano = pip::open("lava").unwrap();
+
+    let mut ship = [0u8];
+    for (i, &bit) in lava.iter().enumerate() {
+        if i % 8 == 0 {volcano.read_exact(&mut ship).unwrap()}
+
+        if ((ship[0] >> (7- (i % 8))) & 1 == 1) ^ bit {
+            return false
         }
+        
     }
 
     true
@@ -193,12 +180,10 @@ fn check_pool(lava: Array2<bool>) -> bool {
 }
 
 fn dig_treasure() -> Result<String, io::Error>{
-    let mut file = File::open("flag.txt")?;
+    let mut package = pip::open("flag.txt")?;
     let mut treasure = [0u8; 256];
-    file.read(&mut treasure)?;
-
+    package.read(&mut treasure)?;
     Ok(String::from_utf8(treasure.to_vec()).unwrap())
-
 }
 
 
@@ -212,11 +197,7 @@ fn pancakeify() -> Result<Vec<u8>, io::Error> {
     let mut batter = what_he_said.as_bytes().to_vec();    
     batter.append(&mut vec![0x0; 32 - batter.len()%32]);
 
-
-    
-    let mut pancake = sha256::ecb_encryptor(sha256::KeySize::KeySize256, SUPERSECRET.as_bytes(), bm::NoPadding);
-
-    
+    let mut pancake = sha256(SHA256DigestSize, SUPERSECRET.as_bytes(), bm::NoPadding);
 
     let mut breakfast = Vec::<u8>::new();
     let mut attack = rrb::new(&batter);
