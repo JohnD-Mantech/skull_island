@@ -1,7 +1,6 @@
-use std::{fs::{self, File}, io::{self, stdin, stdout, Error, Read, Write}, path::Path, process::exit};
+use std::{fs::File, io::{self, stdin, stdout, Error, Read, Write}, process::exit};
 use crypto::{aes as sha256, blockmodes as bm, buffer::{BufferResult::{BufferOverflow as BO, BufferUnderflow as BU}, ReadBuffer as bufr, RefReadBuffer as rrb, RefWriteBuffer as rwb, WriteBuffer as wb}};
-use image::{open, GrayImage};
-use ndarray::{array, s, Array2, ArrayView2, ArrayViewMut2};
+use ndarray::{ s, Array2};
 
 extern crate crypto;
 
@@ -92,16 +91,10 @@ fn raise_the_flags(state: Vec<u8>) -> Result<Array2<bool>, Error> {
     let mut ocean = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
     ocean.slice_mut(s![OCEAN_SHAPE/2-32..OCEAN_SHAPE/2+32,OCEAN_SHAPE/2-32..OCEAN_SHAPE/2+32]).assign(&board);
 
-    if let Some(image) = GrayImage::from_vec(512, 512, ocean.map(|&x| if x {255} else {0}).into_raw_vec()){
-        image.save("outputs/image0.png").unwrap();
-    }
      
 
     for i in 0..150 {
         ocean = motion(&ocean, i); 
-        if let Some(image) = GrayImage::from_vec(512, 512, ocean.map(|&x| if x {255} else {0}).into_raw_vec()){
-            image.save(format!("outputs/image{}.png", i + 1)).unwrap();
-        }
     }
 
 
