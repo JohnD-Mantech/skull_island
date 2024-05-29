@@ -1,15 +1,16 @@
 use std::{fs::{self, File}, io::{self, stdin, stdout, Error, Read, Write}, path::Path, process::exit};
 use crypto::{aes as sha256, blockmodes as bm, buffer::{BufferResult::{BufferOverflow as BO, BufferUnderflow as BU}, ReadBuffer as bufr, RefReadBuffer as rrb, RefWriteBuffer as rwb, WriteBuffer as wb}};
+use image::{open, GrayImage};
 use ndarray::{array, s, Array2, ArrayView2, ArrayViewMut2};
 
 extern crate crypto;
 
 
-const OCEAN_SHAPE: usize = 1024;
+const OCEAN_SHAPE: usize = 512;
 
 const SUPERSECRET: &str = "ThisIsASuperSecretAndHiddenPaswd";
 
-const HELP_QUANTITY:usize = 4;
+const HELP_QUANTITY:usize = 3;
 
 
 const BANNER: &str = r#"                                                                                                    
@@ -91,29 +92,29 @@ fn raise_the_flags(state: Vec<u8>) -> Result<Array2<bool>, Error> {
     let mut ocean = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
     ocean.slice_mut(s![OCEAN_SHAPE/2-32..OCEAN_SHAPE/2+32,OCEAN_SHAPE/2-32..OCEAN_SHAPE/2+32]).assign(&board);
 
-
+    if let Some(image) = GrayImage::from_vec(512, 512, ocean.map(|&x| if x {255} else {0}).into_raw_vec()){
+        image.save("outputs/image0.png").unwrap();
+    }
      
 
-    for i in 0..200 {
+    for i in 0..150 {
         ocean = motion(&ocean, i); 
+        if let Some(image) = GrayImage::from_vec(512, 512, ocean.map(|&x| if x {255} else {0}).into_raw_vec()){
+            image.save(format!("outputs/image{}.png", i + 1)).unwrap();
+        }
     }
 
-    
+
     Ok(ocean)
 
 }
 
 
-
-
-
-/// Block_size = 3
 fn motion(ocean: &Array2<bool>, end:usize) -> Array2<bool> {
     let mut nextocean = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
 
     let set = (end % HELP_QUANTITY) as i32;
-    // println!("{}", offset);
-    print!("\r{}{}", ". ".repeat(set as usize), "  ".repeat(HELP_QUANTITY - set as usize));
+    print!("\r{}{}", ". ".repeat(set as usize + 1), "  ".repeat(HELP_QUANTITY - set as usize - 1));
     stdout().flush().unwrap();
     let mut x = -set;
 
@@ -127,40 +128,32 @@ fn motion(ocean: &Array2<bool>, end:usize) -> Array2<bool> {
                         match ocean.get(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
                             Some(&is_alive) => {
                                 if is_alive {num_alive += 1}}
-                            None => if end % 2 == 1 {
-                                num_alive += 1
-                            },
+                            None => (),
                         };
                     } else {
-                        if end % 2 == 1 {
-                            num_alive += 1
-                        }
+                        
                     }
                 }
             }
 
             
-                for dx in 0..HELP_QUANTITY {
-                    for change in 0..HELP_QUANTITY {
-                        if quantity + change as i32 >= 0 && x + dx as i32 >= 0 {
-                            match nextocean.get_mut(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
-                                Some(nospot) => {
-                                    if (num_alive > 6 && num_alive < 11) || num_alive == 1 || num_alive == 15 {
-                                        *nospot = ocean[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
-                                    } else {
-                                        *nospot = !ocean[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
-                                    }
-                                },
-                                None => (),
-                            }
+            for dx in 0..HELP_QUANTITY {
+                for change in 0..HELP_QUANTITY {
+                    if quantity + change as i32 >= 0 && x + dx as i32 >= 0 {
+                        match nextocean.get_mut(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
+                            Some(nospot) => {
+                                if  num_alive == 4 || num_alive == 5  {
+                                    *nospot = !ocean[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
+                                } else {
+                                    *nospot = ocean[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
+                                }
+                            },
+                            None => (),
                         }
                     }
-                } 
+                }
+            } 
             
-           
-        
-
-
             quantity += 3;
         }
         x += 3
