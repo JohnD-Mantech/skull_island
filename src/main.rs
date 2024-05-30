@@ -109,9 +109,9 @@ fn motion(island: &Array2<bool>, seed:usize) -> Array2<bool> {
     while x < island.shape()[1] as i32 {
         let mut quantity = -random;
         while quantity < island.shape()[0] as i32 {
-            let mut counter = 0;
-            swim(quantity, x, &mut counter, &|dx, change, counter| {
-                if let Some(counter) = counter {
+            let mut uuuuh = 0;
+            swim(quantity, x, &mut uuuuh, &|dx, change, uuuuh| {
+                if let Some(counter) = uuuuh {
                 match island.get(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
                     Some(&is_alive) => {
                         if is_alive {*counter += 1}}
@@ -119,14 +119,12 @@ fn motion(island: &Array2<bool>, seed:usize) -> Array2<bool> {
                 };
             }
             });
-            
-            // if counter > 0 {println!("{}", counter)}
-            
-            swim(quantity, x, &mut continent, &|dx, change, continent| {
-                if let Some(continent) = continent {
-                match continent.get_mut(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
+                        
+            swim(quantity, x, &mut continent, &|dx, change, idek| {
+                if let Some(arg) = idek {
+                match arg.get_mut(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
                     Some(nospot) => {
-                        if  counter == 4 || counter == 5  {
+                        if  uuuuh == 4 || uuuuh == 5  {
                             *nospot = !island[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
                         } else {
                             *nospot = island[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
