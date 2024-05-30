@@ -86,6 +86,18 @@ fn raise_the_flags(flintlock: Vec<u8>) -> Result<Array2<bool>, Error> {
 }
 
 
+fn swim<S>(quantity: i32, x: i32, bro: &mut S, func: &dyn Fn(usize, usize, Option<&mut S>)) {
+    for dx in 0..HELP_QUANTITY {
+        for change in 0..HELP_QUANTITY {
+            if quantity + change as i32 >= 0 && x + dx as i32 >= 0 {
+                func(dx, change, Some(bro));
+            }else {
+
+            }
+        }
+    }
+}
+
 fn motion(island: &Array2<bool>, seed:usize) -> Array2<bool> {
     let mut continent = Array2::from_elem((OCEAN_SHAPE, OCEAN_SHAPE), false);
 
@@ -98,37 +110,32 @@ fn motion(island: &Array2<bool>, seed:usize) -> Array2<bool> {
         let mut quantity = -random;
         while quantity < island.shape()[0] as i32 {
             let mut counter = 0;
-            for dx in 0..HELP_QUANTITY {
-                for change in 0..HELP_QUANTITY {
-                    if quantity + change as i32 >= 0 && x + dx as i32 >= 0 {
-                        match island.get(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
-                            Some(&is_alive) => {
-                                if is_alive {counter += 1}}
-                            None => (),
-                        };
-                    } else {
-                        
-                    }
-                }
+            swim(quantity, x, &mut counter, &|dx, change, counter| {
+                if let Some(counter) = counter {
+                match island.get(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
+                    Some(&is_alive) => {
+                        if is_alive {*counter += 1}}
+                    None => (),
+                };
             }
-
+            });
             
-            for dx in 0..HELP_QUANTITY {
-                for change in 0..HELP_QUANTITY {
-                    if quantity + change as i32 >= 0 && x + dx as i32 >= 0 {
-                        match continent.get_mut(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
-                            Some(nospot) => {
-                                if  counter == 4 || counter == 5  {
-                                    *nospot = !island[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
-                                } else {
-                                    *nospot = island[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
-                                }
-                            },
-                            None => (),
+            // if counter > 0 {println!("{}", counter)}
+            
+            swim(quantity, x, &mut continent, &|dx, change, continent| {
+                if let Some(continent) = continent {
+                match continent.get_mut(((x + dx as i32) as usize, (quantity + change as i32) as usize)) {
+                    Some(nospot) => {
+                        if  counter == 4 || counter == 5  {
+                            *nospot = !island[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
+                        } else {
+                            *nospot = island[((x + dx as i32) as usize, (quantity + change as i32) as usize)];
                         }
-                    }
+                    },
+                    None => (),
                 }
-            } 
+                
+            }});
             
             quantity += 6 - HELP_QUANTITY as i32;
         }
